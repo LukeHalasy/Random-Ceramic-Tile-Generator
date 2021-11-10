@@ -9,6 +9,7 @@ canvas.style.height = h + 'px';
 
 ctx.clearRect(0, 0, w * 2, h * 2);
 ctx.moveTo(cx, cy);
+ctx.globalCompositeOperation='destination-over';
 ctx.beginPath();
 
 const fn = t =>
@@ -59,20 +60,139 @@ function drawRandomPolar() {
     const x = cx + r * Math.cos(t);
     const y = cy + r * Math.sin(t);
     ctx.lineTo(x, y);
-  }); 
+  });
 
-  ctx.strokeStyle = '#333';
+  ctx.fillStyle = 'white';
+  ctx.lineWidth = 5;
+  ctx.fill();
+
+  ctx.strokeStyle = '#000';
   ctx.lineWidth = 5;
   ctx.lineJoin = 'round';
   ctx.stroke();
 };
 
-function getPixelData() {
+function fillWhitespaceRandomly(colorPalette) {
   var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   console.log(imageData);
+  
+  const oldImageData = new ImageData(
+    new Uint8ClampedArray(imageData.data),
+    imageData.width,
+    imageData.height
+  )
+
+  let pixelStack = [];
+  let newPos, x, y, reachLeft, reachRight;
+  
+  for(let i = 0; i < imageData.data.length; i += 4) {
+    if (imageData.data[i] > 10) {
+    	x = (i / 4) % canvas.width;
+		  y = Math.floor((i / 4) / canvas.width);
+        
+      pixelStack.push([x, y]);
+
+      let color = colorPalette[Math.floor(Math.random()*colorPalette.length)]
+      floodFill(color);
+    };
+  }
+  
+  function floodFill(color) {
+  	newPos = pixelStack.pop();
+    x = newPos[0];
+    y = newPos[1];
+    //get current pixel position
+    pixelPos = (y * canvas.width + x) * 4;
+    // Go up as long as the color matches and are inside the canvas
+    while (y >= 0 && matchWhite(pixelPos)) {
+      y--;
+      pixelPos -= canvas.width * 4;
+    }
+
+    //Don't overextend
+    pixelPos += canvas.width * 4;
+    y++;
+    reachLeft = false;
+    reachRight = false;
+
+    // Go down as long as the color matches and in inside the canvas
+    while (y < canvas.height && matchWhite(pixelPos)) {
+      colorPixel(pixelPos, color);
+      if (x > 0) {
+        if (matchWhite(pixelPos - 4)) {
+          if (!reachLeft) {
+            //Add pixel to stack
+            pixelStack.push([x - 1, y]);
+            reachLeft = true;
+          }
+        } else if (reachLeft) {
+          reachLeft = false;
+        }
+      }
+      if (x < canvas.width - 1) {
+        if (matchWhite(pixelPos + 4)) {
+          if (!reachRight) {
+            //Add pixel to stack
+            pixelStack.push([x + 1, y]);
+            reachRight = true;
+          }
+        } else if (reachRight) {
+          reachRight = false;
+        }
+      }
+      y++;
+      pixelPos += canvas.width * 4;
+    }
+
+    //recursive until no more pixels to change
+    if (pixelStack.length) {
+      floodFill(color);
+    }
+  }
+
+  //render floodFill result
+  ctx.putImageData(imageData, 0, 0);
+
+  //helpers
+  function matchWhite(pixelPos) {
+    let r = oldImageData.data[pixelPos];
+    
+    let g = imageData.data[pixelPos + 1];
+    let b = imageData.data[pixelPos + 2];
+    let a = imageData.data[pixelPos + 3];
+    
+    return r > 10;
+  }
+
+  function colorPixel(pixelPos, color) {
+  	oldImageData.data[pixelPos] = 0;
+  
+    imageData.data[pixelPos] = color[0];
+    imageData.data[pixelPos + 1] = color[1];
+    imageData.data[pixelPos + 2] = color[2];
+    imageData.data[pixelPos + 3] = 255;
+  }
 };
 
-drawRandomPolar();
-getPixelData();
+function drawTile() {
+  function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : null;
+  }
+
+  var scheme = new ColorScheme;
+  scheme.from_hue(randomIntFromInterval(1, 360))
+        .scheme('tetrade')
+   
+  let colorPalette = scheme.colors().map((color) => {
+    return hexToRgb(color);
+  }).slice(0, 3);
 
 
+  drawRandomPolar();
+  fillWhitespaceRandomly(colorPalette);
+  drawRandomPolar();
+  fillWhitespaceRandomly(colorPalette);
+}
+
+drawTile();
