@@ -8,12 +8,8 @@ canvas.style.width = w + 'px';
 canvas.style.height = h + 'px';
 
 ctx.clearRect(0, 0, w * 2, h * 2);
-ctx.moveTo(cx, cy);
-ctx.globalCompositeOperation='destination-over';
-ctx.beginPath();
 
-const fn = t =>
-  1 - Math.cos(t) * Math.sin(3 * t);
+ctx.moveTo(cx, cy);
 
 function randomIntFromInterval(min, max) { // min and max included 
   return Math.floor(Math.random() * (max - min + 1) + min)
@@ -27,6 +23,7 @@ function randomEvenNumber(min, max) {
 
   return randomNumber;
 }
+
 function drawRandomPolar() {
   // One to do is r = sin(a * t) where a is even, and 0 < t < 2pi, flower
   // Another is r= b * sin (a * t) + c, where you just let a is even, and b and c are allowed to run wild, but you need to check that it doesn't just cover up the whole tile
@@ -63,11 +60,10 @@ function drawRandomPolar() {
   });
 
   ctx.fillStyle = 'white';
-  ctx.lineWidth = 5;
   ctx.fill();
 
   ctx.strokeStyle = '#000';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 7;
   ctx.lineJoin = 'round';
   ctx.stroke();
 };
@@ -170,9 +166,118 @@ function fillWhitespaceRandomly(colorPalette) {
     imageData.data[pixelPos] = color[0];
     imageData.data[pixelPos + 1] = color[1];
     imageData.data[pixelPos + 2] = color[2];
-    imageData.data[pixelPos + 3] = 255;
+    imageData.data[pixelPos + 3] = 150;
   }
 };
+
+function drawRandomCenterPolar(widthRatio, fill) {
+  const functionTypes = ["negsincos", "sincos", "symsincos", "cossin"];
+  const functionType = functionTypes[Math.floor(Math.random() * functionTypes.length)]
+  const angleOfRotation = randomIntFromInterval(0, 360);
+
+  const precision = 10; // 1 decimal
+  const upperLimit = 5;
+  const lowerLimit = -5;
+  const a = Math.floor(Math.random() * (upperLimit * precision - lowerLimit * precision) + lowerLimit * precision) / (1*precision);
+
+  
+  console.log("functionType", functionType);
+  console.log("a", a);
+  console.log("r", widthRatio);
+
+  const fn = (t) => {
+    if (functionType == "sincos") {
+      return widthRatio * Math.sin(a * Math.cos(t));
+    } else if (functionType == "negsincos") {
+      return -1 * widthRatio * Math.sin(a * Math.cos(t));
+    } else if (functionType == "symsincos") {
+      return widthRatio * Math.sin(a * Math.cos(t)) * Math.sin(a * Math.cos(t));
+    } else {
+      // cossin
+      return widthRatio * Math.cos(a * Math.sin(t));
+    }
+  }
+  
+  ctx.moveTo(cx, cy);
+  ctx.beginPath();
+  Array.from(Array(500).keys()).forEach(idx => {
+    const period = (functionType == "cossin" || functionType == "symsincos") ? 2 * Math.PI : Math.PI;
+    console.log(period);
+    const t = ((idx)/499 * period);
+    const r = w * 0.5 * fn(t);
+    const x = cx + r * Math.cos(t);
+    const y = cy + r * Math.sin(t);
+    ctx.lineTo(x, y);
+  });
+
+  
+  if (fill) {
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.lineWidth = 12;
+  } else {
+    ctx.lineWidth = 7;
+  }
+
+  ctx.strokeStyle = '#000';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.closePath();
+};
+
+function drawRandomEdgePattern() {
+  console.log("edge");
+  // tan2 = tan(2t) + c
+  // negtan2 = -tan(2t) + c
+  // tan1 = tan(1t) + c
+  // negtan1 = -tan(1t) + c, from -1 to 1
+  const functionTypes = ["tan2", "tan2", "tan1", "negtan1"];
+  const functionType = functionTypes[Math.floor(Math.random() * functionTypes.length)]
+
+  const precision = 10; // 1 decimal
+  const upperLimit = 1.5;
+  const lowerLimit = -1.5;
+  const c = Math.floor(Math.random() * (upperLimit * precision - lowerLimit * precision) + lowerLimit * precision) / (1*precision);
+
+  
+
+  console.log("functionType", functionType);
+  console.log("c", c);
+  
+  const fn = (t) => {
+    if (functionType == "tan2") {
+      return Math.tan(2 * t) + c
+    } else if (functionType == "negtan2") {
+      return (-1 * Math.tan(2 * t)) + c
+    } else if (functionType == "tan1") {
+      return Math.tan(t) + c
+    } else {
+      // negtan1
+      return (-1 * Math.tan(t)) + c
+    }
+  }
+    
+  ctx.moveTo(cx, cy);
+  ctx.beginPath();
+
+  Array.from(Array(500).keys()).forEach(idx => {
+    const period = 2 * Math.PI;
+    const t = ((idx)/499 * period);
+    const r = w * 0.5 * fn(t);
+    const x = cx + r * Math.cos(t);
+    const y = cy + r * Math.sin(t);
+    ctx.lineTo(x, y);
+  });
+
+  //ctx.fillStyle = 'white';
+  // ctx.fill();
+
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 7;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.closePath();
+}
 
 function drawTile() {
   function hexToRgb(hex) {
@@ -188,11 +293,30 @@ function drawTile() {
     return hexToRgb(color);
   }).slice(0, 3);
 
+  ctx.globalCompositeOperation = "destination-over";
+  drawRandomCenterPolar(0.5, fill=true);
 
-  drawRandomPolar();
-  fillWhitespaceRandomly(colorPalette);
-  drawRandomPolar();
+  //fillWhitespaceRandomly(colorPalette);
+  drawRandomCenterPolar(1.2, fill=true);
+  drawRandomEdgePattern();
+
+  ctx.beginPath();
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, w * 2, h * 2);
+  ctx.closePath();
+
   fillWhitespaceRandomly(colorPalette);
 }
 
-drawTile();
+
+var img = document.createElement( "img" );
+// img.src = "https://homedepot.scene7.com/is/image/homedepotcanada/p_1001101843.jpg?wid=1000&hei=1000&op_sharpen=1";
+img.src = "js/Textures/Marble4.jpg";
+
+img.onload = function() {
+  drawTile();
+  //ctx.restore();
+  ctx.resetTransform();
+  //ctx.globalCompositeOperation = "dest-over";
+  ctx.drawImage( img, 0, 0, canvas.width, canvas.height );
+}
